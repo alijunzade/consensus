@@ -1,10 +1,10 @@
-name: İçerik Üret
+name: Icerik Uret
 
 on:
   workflow_dispatch:
     inputs:
       topic:
-        description: "Konu (örn: menopozda östrojen patchi ve psikoloji)"
+        description: "Konu (örn: menopozda östrojen patchi)"
         required: true
         type: string
 
@@ -14,10 +14,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Repo çek
+      - name: Repo cek
         uses: actions/checkout@v4
 
-      - name: Node.js kur
+      - name: Nodejs kur
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -25,14 +25,12 @@ jobs:
       - name: Chromium kur
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y chromium-browser \
-            fonts-liberation libappindicator3-1 libasound2 \
-            libatk-bridge2.0-0 libnspr4 libnss3
+          sudo apt-get install -y chromium-browser fonts-liberation libappindicator3-1 libasound2 libatk-bridge2.0-0 libnspr4 libnss3
 
-      - name: Bağımlılıkları yükle
+      - name: Bagimlilik yukle
         run: npm install
 
-      - name: Pipeline çalıştır
+      - name: Pipeline calistir
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CONTENT_TOPIC: ${{ inputs.topic }}
@@ -40,43 +38,25 @@ jobs:
           SLIDE_COUNT: "14"
         run: node pipeline.js "$CONTENT_TOPIC"
 
-      - name: Çıktıları yükle
+      - name: Ciktilari yukle
         uses: actions/upload-artifact@v4
         with:
           name: icerik-${{ github.run_number }}
           path: output/
           retention-days: 7
 
-      - name: Telegram — başarı
+      - name: Telegram basari
         if: success()
-        env:
-          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          RUN_ID: ${{ github.run_id }}
-          REPO: ${{ github.repository }}
-          TOPIC: ${{ inputs.topic }}
-          RUN_NUM: ${{ github.run_number }}
         run: |
-          curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
-            -d chat_id="$CHAT_ID" \
-            -d text="✅ İçerik hazır!
+          TEXT="Icerik hazir! Konu: ${{ inputs.topic }} | Run: ${{ github.run_number }} | https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d "text=$TEXT"
 
-📌 $TOPIC
-🖼 Run #$RUN_NUM
-
-📥 https://github.com/$REPO/actions/runs/$RUN_ID
-
-Artifacts → icerik-$RUN_NUM → indir"
-
-      - name: Telegram — hata
+      - name: Telegram hata
         if: failure()
-        env:
-          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TOPIC: ${{ inputs.topic }}
-          REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
         run: |
-          curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
-            -d chat_id="$CHAT_ID" \
-            -d text="❌ Hata! Konu: $TOPIC — https://github.com/$REPO/actions/runs/$RUN_ID"
+          TEXT="HATA! Konu: ${{ inputs.topic }} | https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d "text=$TEXT"

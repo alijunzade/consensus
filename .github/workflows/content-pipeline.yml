@@ -1,99 +1,82 @@
-name: Psikiyatri İçerik Pipeline
+name: İçerik Üret
 
 on:
-  # Manuel tetikleme — konu buradan girilir
   workflow_dispatch:
     inputs:
       topic:
-        description: "İçerik konusu (örn: menopozda östrojen patchi ve psikoloji)"
+        description: "Konu (örn: menopozda östrojen patchi ve psikoloji)"
         required: true
         type: string
-      dry_run:
-        description: "Dry run (gerçek paylaşım yapma)"
-        required: false
-        default: "false"
-        type: choice
-        options: ["false", "true"]
-      schedule_post:
-        description: "Paylaşımı zamanla (boş = hemen paylaş)"
-        required: false
-        type: string
-
-  # Telegram bot ile tetikleme için webhook (opsiyonel)
-  repository_dispatch:
-    types: [content-request]
 
 jobs:
-  create-content:
+  generate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - name: Kodu çek
+      - name: Repo çek
         uses: actions/checkout@v4
 
       - name: Node.js kur
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: psikiyatri-content/package-lock.json
 
-      - name: Chrome/Chromium kur (Puppeteer için)
+      - name: Chromium kur
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            chromium-browser \
-            fonts-liberation \
-            libappindicator3-1 \
-            libasound2 \
-            libatk-bridge2.0-0 \
-            libnspr4 \
-            libnss3 \
-            lsb-release \
-            xdg-utils
+          sudo apt-get update -qq
+          sudo apt-get install -y chromium-browser \
+            fonts-liberation libappindicator3-1 libasound2 \
+            libatk-bridge2.0-0 libnspr4 libnss3
 
       - name: Bağımlılıkları yükle
-        working-directory: psikiyatri-content
-        run: npm ci
+        run: npm install
 
-      - name: Pipeline'ı çalıştır
-        working-directory: psikiyatri-content
+      - name: Pipeline çalıştır
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          AYRSHARE_API_KEY: ${{ secrets.AYRSHARE_API_KEY }}
-          CONTENT_TOPIC: ${{ github.event.inputs.topic || github.event.client_payload.topic }}
-          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          CONTENT_TOPIC: ${{ inputs.topic }}
           PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
           SLIDE_COUNT: "14"
-        run: node src/pipeline.js "$CONTENT_TOPIC"
+        run: node pipeline.js "$CONTENT_TOPIC"
 
-      - name: Çıktıları artifact olarak yükle
+      - name: Çıktıları yükle
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: icerik-${{ github.run_number }}
-          path: psikiyatri-content/output/
-          retention-days: 30
+          path: output/
+          retention-days: 7
 
-      - name: Hata bildirimi (Telegram)
-        if: failure()
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
-            -d chat_id="$TELEGRAM_CHAT_ID" \
-            -d text="❌ Pipeline hatası! Run #${{ github.run_number }} — ${{ github.event.inputs.topic }}" \
-            -d parse_mode="HTML"
-
-      - name: Başarı bildirimi (Telegram)
+      - name: Telegram — başarı
         if: success()
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          TOPIC: ${{ inputs.topic }}
+          RUN_NUM: ${{ github.run_number }}
         run: |
-          curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
-            -d chat_id="$TELEGRAM_CHAT_ID" \
-            -d text="✅ İçerik hazır! ${{ github.event.inputs.topic }} — Artifact indir: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            -d parse_mode="HTML"
+          curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+            -d chat_id="$CHAT_ID" \
+            -d text="✅ İçerik hazır!
+
+📌 $TOPIC
+🖼 Run #$RUN_NUM
+
+📥 https://github.com/$REPO/actions/runs/$RUN_ID
+
+Artifacts → icerik-$RUN_NUM → indir"
+
+      - name: Telegram — hata
+        if: failure()
+        env:
+          BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TOPIC: ${{ inputs.topic }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
+            -d chat_id="$CHAT_ID" \
+            -d text="❌ Hata! Konu: $TOPIC — https://github.com/$REPO/actions/runs/$RUN_ID"

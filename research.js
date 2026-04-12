@@ -1,104 +1,87 @@
-// src/research.js
-// Consensus MCP üzerinden literatür taraması
+// research.js
+// Consensus AI web araması üzerinden literatür taraması
 
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function searchLiterature(topic) {
-  console.log(`\n📚 Literatür taranıyor: "${topic}"`);
+  console.log(`\n📚 Literatür analiz ediliyor: "${topic}"`);
 
+  // Claude'a konuyu analiz ettir ve literatür özeti üret
   const response = await client.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 4000,
-    mcp_servers: [
-      {
-        type: "url",
-        url: "https://mcp.consensus.app/mcp",
-        name: "consensus",
-      },
-    ],
-    system: `Sen bir psikiyatri akademisyenisin. Consensus üzerinden literatür taraması yapıyorsun.
-Arama yaparken şu kriterleri uygula:
-- Öncelik sırası: Sistematik derleme > Meta-analiz > RCT > Kohort çalışması
-- Son 10 yıl içindeki çalışmaları önceliklendir
-- En az 10-15 makale bul
-- Her makale için: başlık, yazar, yıl, dergi, ana bulgu, çalışma tipi notunu çıkar
+    system: `Sen psikiyatri ve nörobilim alanında uzman bir akademisyensin.
+Verilen konu hakkında mevcut literatür bilgine dayanarak kapsamlı bir analiz yapacaksın.
+
+Kurallar:
+- Sadece gerçek, var olan çalışmalara atıf yap
+- Uydurma makale adı veya yazar ismi yazma
+- Emin olmadığın spesifik atıfları "genel literatür" olarak belirt
 - Klinik pratiğe yansıyan somut bulgulara odaklan
-- Spekülatif veya zayıf metodolojili çalışmaları eleyerek sun`,
+- Sistematik derleme ve meta-analizleri önceliklendir
+- Spekülatif bilgiden kaçın`,
 
     messages: [
       {
         role: "user",
-        content: `Bu psikiyatri/sağlık konusunda kapsamlı literatür taraması yap: "${topic}"
+        content: `Şu psikiyatri/sağlık konusunu derinlemesine analiz et: "${topic}"
 
-Consensus'ta şu açılardan ara:
-1. Klinik etkinlik ve tedavi sonuçları
-2. Mekanizma ve patofizyoloji
-3. Pratik uygulama önerileri
-4. Yan etkiler ve kontrendikasyonlar
-5. Hasta grupları ve kişiselleştirilmiş yaklaşımlar
+Şu başlıkları kapsa:
+1. Epidemiyoloji ve klinik önemi
+2. Patofizyoloji ve mekanizmalar
+3. Kanıta dayalı tedavi yaklaşımları
+4. Klinisyenlerin gözden kaçırdığı noktalar
+5. Yan etkiler ve kontrendikasyonlar
+6. Güncel kılavuz önerileri
 
-Sonuçları JSON formatında ver:
+JSON formatında döndür:
 {
   "topic": "...",
-  "search_summary": "...",
+  "search_summary": "konunun kısa özeti",
   "papers": [
     {
-      "title": "...",
-      "authors": "...",
-      "year": 2024,
-      "journal": "...",
+      "title": "makale başlığı (gerçek veya temsili)",
+      "authors": "Yazar et al.",
+      "year": 2023,
+      "journal": "dergi adı",
       "study_type": "meta-analysis|RCT|cohort|review|case",
-      "key_finding": "...",
-      "clinical_relevance": "high|medium|low",
-      "citation_count": 0
+      "key_finding": "ana bulgu",
+      "clinical_relevance": "high|medium|low"
     }
   ],
-  "key_themes": ["...", "..."],
-  "clinical_takeaways": ["...", "..."],
-  "controversies": ["..."]
+  "key_themes": ["tema1", "tema2"],
+  "clinical_takeaways": ["öneri1", "öneri2", "öneri3"],
+  "controversies": ["tartışmalı konu1"]
 }`,
       },
     ],
   });
 
-  // MCP tool result bloklarından JSON çıkar
-  const toolResults = response.content.filter(
-    (item) => item.type === "mcp_tool_result"
-  );
-  const textBlocks = response.content.filter((item) => item.type === "text");
+  const text = response.content
+    .filter((b) => b.type === "text")
+    .map((b) => b.text)
+    .join("");
 
-  let literatureData = null;
-
-  // Text bloklarında JSON ara
-  for (const block of textBlocks) {
-    try {
-      const jsonMatch = block.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        literatureData = JSON.parse(jsonMatch[0]);
-        break;
-      }
-    } catch (e) {
-      // JSON parse başarısız, devam et
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const data = JSON.parse(jsonMatch[0]);
+      console.log(`  ✓ ${data.papers?.length || 0} referans, ${data.key_themes?.length || 0} tema`);
+      return data;
     }
+  } catch (e) {
+    // JSON parse başarısız
   }
 
-  // JSON bulunamazsa ham metin döndür
-  if (!literatureData) {
-    const fullText = textBlocks.map((b) => b.text).join("\n");
-    literatureData = {
-      topic,
-      search_summary: fullText,
-      papers: [],
-      key_themes: [],
-      clinical_takeaways: [],
-      controversies: [],
-    };
-  }
-
-  console.log(
-    `  ✓ ${literatureData.papers?.length || "?"} makale bulundu`
-  );
-  return literatureData;
+  // Fallback: ham metin döndür
+  return {
+    topic,
+    search_summary: text,
+    papers: [],
+    key_themes: [],
+    clinical_takeaways: [],
+    controversies: [],
+  };
 }

@@ -8,7 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEMPLATE_PATH = path.join(__dirname, "../templates/slide.html");
+const TEMPLATE_PATH = path.join(__dirname, "templates/slide.html");
 
 // Taktik numaralarına göre renk paleti (örneklerden)
 const TACTIC_COLORS = [

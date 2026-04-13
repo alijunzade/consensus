@@ -77,7 +77,11 @@ JSON formatında döndür:
 
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    const content = JSON.parse(jsonMatch[0]);
+    const cleaned = jsonMatch[0]
+  .replace(/[\u{1F300}-\u{1FFFF}]/gu, "")
+  .replace(/[\u2600-\u27BF]/gu, "");
+const content = JSON.parse(cleaned);
+
     console.log(`  ✓ ${content.slides.length} slayt içeriği hazırlandı`);
     return content;
   } catch (e) {

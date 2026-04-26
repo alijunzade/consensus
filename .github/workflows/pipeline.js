@@ -40,7 +40,7 @@ async function run() {
 
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
   const slugTopic = topic.slice(0, 40).toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_ğüşıöç]/g, "");
-  const sessionDir = path.join(__dirname, `../output/${timestamp}_${slugTopic}`);
+  const sessionDir = path.join(__dirname, `output/${timestamp}_${slug}`);
 
   await mkdir(sessionDir, { recursive: true });
 

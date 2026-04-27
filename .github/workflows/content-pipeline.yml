@@ -33,12 +33,15 @@ jobs:
         run: npm install
 
       - name: Pipeline calistir
+      
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CONTENT_TOPIC: ${{ inputs.topic }}
           PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
           SLIDE_COUNT: "14"
         run: node pipeline.js "$CONTENT_TOPIC"
+      - name: Dosyalari listele
+        run: find . -name "*.png" -o -name "*.txt" | head -50
 
       - name: Ciktilari yukle
         uses: actions/upload-artifact@v4

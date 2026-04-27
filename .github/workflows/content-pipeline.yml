@@ -47,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: icerik-${{ github.run_number }}
-          path: "**/output/**"
+          path: /home/runner/work/consensus/output/
           retention-days: 7
 
       - name: Telegram basari

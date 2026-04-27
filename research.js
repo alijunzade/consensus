@@ -63,7 +63,7 @@ Sadece JSON array döndür:
 }
 
 // ── Adım 2: Consensus API araması ─────────────────────────
-async function searchConsensus(query, limit = 5) {
+async function searchConsensus(query, limit = 10) {
   const url = new URL("https://api.consensus.app/v1/quick_search");
   url.searchParams.set("query", query);
   url.searchParams.set("limit", String(limit));
@@ -217,7 +217,7 @@ export async function searchLiterature(topic) {
   const allPapers = [];
 
   for (const query of queries) {
-    const papers = await searchConsensus(query, 5);
+    const papers = await searchConsensus(query, 10);
     allPapers.push(...papers);
     if (papers.length > 0) {
       console.log(`  ✓ "${query.slice(0, 50)}..." → ${papers.length} makale`);
@@ -233,8 +233,8 @@ export async function searchLiterature(topic) {
       seen.add(key);
       return true;
     })
-    .sort((a, b) => (b.citation_count || 0) - (a.citation_count || 0))
-    .slice(0, 20);
+    .sort((a, b) => (b.citation_count || 0) - (a.citation_count || 0));
+.slice(0, 20);  // ← bu satırı silin;
 
   console.log(`  ✓ Toplam ${unique.length} benzersiz makale`);
 
